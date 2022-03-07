@@ -8,11 +8,12 @@ import createEngine, {
 } from "@projectstorm/react-diagrams";
 import { CanvasWidget } from "@projectstorm/react-canvas-core";
 import { LinkWidget, PointModel } from "@projectstorm/react-diagrams-core";
-
+import axios from "axios";
+import { server_address } from "./config";
 class AdvancedLinkModel extends DefaultLinkModel {
   constructor() {
     super({
-      type: "advanced", 
+      type: "advanced",
       width: 10,
     });
   }
@@ -131,6 +132,14 @@ class AdvancedLinkFactory extends DefaultLinkFactory {
 }
 
 const CanvasComponent = () => {
+  const send_data = async (data) => {
+    axios
+      .post(`${server_address}:3001/api/state/cache`, data)
+      .then(function (response) {
+        console.log(response);
+      });
+  };
+
   const engine = createEngine();
   engine.getLinkFactories().registerFactory(new AdvancedLinkFactory());
   const node1 = new DefaultNodeModel({
@@ -165,8 +174,27 @@ const CanvasComponent = () => {
     },
   });
   model.registerListener({
-    eventDidFire: () => {
+    eventDidFire: (e) => {
       console.log("model eventDidFire");
+    },
+    linksUpdated: (e) => {
+      let obj = e.entity.activeNodeLayer.models;
+      let source = e.link.sourcePort.parent.options;
+      let target = e.link.targetPort;
+      let state = { components: [], links: [] };
+      Object.values(obj).map((obj) => {
+        let id = obj.options["id"];
+        let name = obj.options.name;
+        state["components"].push({ id: id, name: name });
+      });
+      if (target) {
+        state["links"].push({ src: source.id, dest: target.id });
+      }
+      console.log("link updated");
+      send_data(state);
+    },
+    nodesUpdated: (e) => {
+      console.log("node updated");
     },
   });
 
